@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-      SNOWFLAKE_PRIVATE_KEY_PATH: ${{ runner.temp }}/snowflake_key.p8
+      SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/snowflake_key.p8
       DBT_PROFILES_DIR: .
       DBT_CI_SCHEMA: ci_pr_${{ github.event.pull_request.number }}
     steps:
