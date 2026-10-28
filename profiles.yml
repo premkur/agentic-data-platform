@@ -1,0 +1,35 @@
+# No secrets here. Set env vars: SNOWFLAKE_ACCOUNT (orgname-accountname), SNOWFLAKE_PRIVATE_KEY_PATH
+# Use with:  export DBT_PROFILES_DIR=.
+agentic_shop:
+  target: dev
+  outputs:
+    dev:   # local work, including Kiro. Can only write AGENTIC_DEV.
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: DBT_CI_USER
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      role: DBT_CI_ROLE
+      database: AGENTIC_DEV
+      warehouse: AGENTIC_WH
+      schema: dev_sandbox
+      threads: 4
+    ci:    # GitHub Actions on pull requests; one schema family per PR
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: DBT_CI_USER
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      role: DBT_CI_ROLE
+      database: AGENTIC_DEV
+      warehouse: AGENTIC_WH
+      schema: "{{ env_var('DBT_CI_SCHEMA', 'ci_local') }}"
+      threads: 4
+    prod:  # GitHub Actions on merge to main only
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: DBT_PROD_USER
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      role: DBT_PROD_ROLE
+      database: AGENTIC_PROD
+      warehouse: AGENTIC_WH
+      schema: public
+      threads: 4

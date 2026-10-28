@@ -1,0 +1,60 @@
+name: Monitor (feedback loop)
+on:
+  schedule:
+    - cron: "0 20 * * *"   # daily, 20:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  data-tests:
+    runs-on: ubuntu-latest
+    env:
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_PRIVATE_KEY_PATH: ${{ runner.temp }}/snowflake_key.p8
+      DBT_PROFILES_DIR: .
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Write Snowflake key
+        env:
+          KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+        run: |
+          printf '%s\n' "$KEY" > "$SNOWFLAKE_PRIVATE_KEY_PATH"
+          chmod 600 "$SNOWFLAKE_PRIVATE_KEY_PATH"
+
+      - name: Run data tests against PROD
+        id: tests
+        continue-on-error: true
+        shell: bash
+        run: dbt test --target prod 2>&1 | tee test.log
+
+      - name: Open an intent issue if tests failed
+        if: steps.tests.outcome == 'failure'
+        shell: bash
+        run: |
+          gh label create data-incident --force
+          gh label create intent --force
+          {
+            echo "## What happened"
+            echo "Scheduled data tests failed on PROD. Failing tests:"
+            echo '```'
+            grep -E "FAIL|ERROR" test.log | head -20
+            echo '```'
+            echo
+            echo "## Desired outcome"
+            echo "Restore a green PROD test run without hiding the problem. Decide whether the"
+            echo "test, the model, or the upstream data contract needs to change."
+            echo
+            echo "## Run"
+            echo "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > body.md
+          gh issue create --title "Data incident: PROD dbt tests failing ($(date -u +%F))" \
+            --label data-incident --label intent --body-file body.md

@@ -1,0 +1,47 @@
+name: CI
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dbt-ci:
+    runs-on: ubuntu-latest
+    env:
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_PRIVATE_KEY_PATH: ${{ runner.temp }}/snowflake_key.p8
+      DBT_PROFILES_DIR: .
+      DBT_CI_SCHEMA: ci_pr_${{ github.event.pull_request.number }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Guardrail - policy check
+        run: python scripts/policy_check.py
+
+      - name: Write Snowflake key
+        env:
+          KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+        run: |
+          printf '%s\n' "$KEY" > "$SNOWFLAKE_PRIVATE_KEY_PATH"
+          chmod 600 "$SNOWFLAKE_PRIVATE_KEY_PATH"
+
+      - name: Build and test in an isolated per-PR schema
+        run: |
+          dbt seed --target ci
+          dbt build --target ci --fail-fast
+
+      - name: Cleanup PR schemas
+        if: always()
+        run: |
+          dbt run-operation drop_ci_schemas --args '{prefix: CI_PR_${{ github.event.pull_request.number }}}' --target ci

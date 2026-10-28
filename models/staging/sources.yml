@@ -1,0 +1,11 @@
+version: 2
+sources:
+  - name: ecom
+    database: agentic_raw
+    schema: ecom
+    tables:
+      - name: customers
+      - name: products
+      - name: orders
+      - name: order_items
+      - name: payments
