@@ -45,3 +45,4 @@ agent limited to the DEV target, PII policy check in CI, PR-only changes, cost m
 3. Open a PR, watch CI, merge, watch CD.
 4. Break it on purpose: `python scripts/generate_data.py --drift && python scripts/load_data.py`,
    then run the Monitor workflow manually. Take the issue it opens back to Kiro as Intent 002.
+
